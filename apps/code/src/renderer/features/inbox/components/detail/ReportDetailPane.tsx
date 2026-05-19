@@ -22,6 +22,7 @@ import {
   WarningIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { Kbd } from "@posthog/quill";
 import {
   Box,
   Flex,
@@ -46,7 +47,14 @@ import type {
 } from "@shared/types";
 import { useNavigationStore } from "@stores/navigationStore";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { isMac } from "@utils/platform";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { ReportImplementationPrLink } from "../utils/ReportImplementationPrLink";
 import { SignalReportActionabilityBadge } from "../utils/SignalReportActionabilityBadge";
@@ -280,6 +288,31 @@ export function ReportDetailPane({
     report,
   ]);
 
+  useEffect(() => {
+    if (!canCreateImplementationPr) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (
+        document.querySelector(
+          "[data-radix-popper-content-wrapper], [role='dialog'][data-state='open']",
+        )
+      ) {
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest("input, select, textarea, [contenteditable='true']")
+      ) {
+        return;
+      }
+      e.preventDefault();
+      handleCreateImplementationTask();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [canCreateImplementationPr, handleCreateImplementationTask]);
+
   return (
     <>
       {/* ── Header bar ──────────────────────────────────────────── */}
@@ -343,15 +376,23 @@ export function ReportDetailPane({
               size="md"
             />
           ) : canCreateImplementationPr ? (
-            <Button
-              size="1"
-              variant="solid"
-              className="gap-1 text-[12px]"
-              onClick={handleCreateImplementationTask}
+            <Tooltip
+              content={
+                <Flex align="center" gap="1">
+                  Create PR <Kbd>{isMac ? "⌘↵" : "Ctrl+↵"}</Kbd>
+                </Flex>
+              }
             >
-              <Plus size={12} />
-              Create PR
-            </Button>
+              <Button
+                size="1"
+                variant="solid"
+                className="gap-1 text-[12px]"
+                onClick={handleCreateImplementationTask}
+              >
+                <Plus size={12} />
+                Create PR
+              </Button>
+            </Tooltip>
           ) : null}
           <button
             type="button"
