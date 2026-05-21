@@ -48,7 +48,11 @@ import type {
 } from "../types";
 import { resourceLink } from "../utils/acp-content";
 import { AsyncMutex } from "../utils/async-mutex";
-import { type GatewayProduct, getLlmGatewayUrl } from "../utils/gateway";
+import {
+  buildGatewayPropertyHeaders,
+  getLlmGatewayUrl,
+  resolveGatewayProduct,
+} from "../utils/gateway";
 import { Logger } from "../utils/logger";
 import { logAgentshRuntimeInfo } from "./agentsh-runtime";
 import {
@@ -845,7 +849,13 @@ export class AgentServer {
       }),
     ]);
 
-    this.configureEnvironment({ isInternal: preTask?.internal === true });
+    this.configureEnvironment({
+      isInternal: preTask?.internal === true,
+      originProduct: preTask?.origin_product,
+      taskId: payload.task_id,
+      taskRunId: payload.run_id,
+      taskUserId: payload.user_id,
+    });
 
     const prUrl = getTaskRunStateString(preTaskRun, "slack_notified_pr_url");
 
@@ -1801,18 +1811,35 @@ ${signedCommitInstructions}
 
   private configureEnvironment({
     isInternal = false,
+    originProduct,
+    taskId,
+    taskRunId,
+    taskUserId,
   }: {
     isInternal?: boolean;
+    originProduct?: string | null;
+    taskId?: string | null;
+    taskRunId?: string | null;
+    taskUserId?: number | null;
   } = {}): void {
     const { apiKey, apiUrl, projectId } = this.config;
-    const product: GatewayProduct = isInternal
-      ? "background_agents"
-      : "posthog_code";
+    const product = resolveGatewayProduct({ isInternal, originProduct });
     const gatewayUrl =
       process.env.LLM_GATEWAY_URL || getLlmGatewayUrl(apiUrl, product);
     const openaiBaseUrl = gatewayUrl.endsWith("/v1")
       ? gatewayUrl
       : `${gatewayUrl}/v1`;
+    // Forward task metadata as `x-posthog-property-*` headers so the gateway
+    // lifts them onto the $ai_generation event. Routes through the Anthropic
+    // SDK's ANTHROPIC_CUSTOM_HEADERS env var; the OpenAI/codex path has no
+    // equivalent today.
+    const customHeaders = buildGatewayPropertyHeaders({
+      task_origin_product: originProduct,
+      task_internal: isInternal,
+      task_id: taskId,
+      task_run_id: taskRunId,
+      task_user_id: taskUserId,
+    });
 
     Object.assign(process.env, {
       // PostHog
@@ -1825,6 +1852,7 @@ ${signedCommitInstructions}
       ANTHROPIC_API_KEY: apiKey,
       ANTHROPIC_AUTH_TOKEN: apiKey,
       ANTHROPIC_BASE_URL: gatewayUrl,
+      ANTHROPIC_CUSTOM_HEADERS: customHeaders,
       // OpenAI (for models like GPT-4, o1, etc.)
       OPENAI_API_KEY: apiKey,
       OPENAI_BASE_URL: openaiBaseUrl,
