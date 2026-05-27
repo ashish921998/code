@@ -9,12 +9,12 @@ import { useSeat } from "@hooks/useSeat";
 import type { UsageBucket } from "@main/services/llm-gateway/schemas";
 import {
   ArrowSquareOut,
-  Check,
   CreditCard,
   Info,
   WarningCircle,
 } from "@phosphor-icons/react";
 import {
+  Badge,
   Button,
   Callout,
   Dialog,
@@ -23,8 +23,9 @@ import {
   Spinner,
   Text,
 } from "@radix-ui/themes";
-import { Tooltip } from "@renderer/components/ui/Tooltip";
+import { ANALYTICS_EVENTS } from "@shared/types/analytics";
 import { PLAN_PRO_ALPHA } from "@shared/types/seat";
+import { track } from "@utils/analytics";
 import { logger } from "@utils/logger";
 import { getBillingUrl, getPostHogUrl } from "@utils/urls";
 import { useEffect, useState } from "react";
@@ -85,6 +86,14 @@ export function PlanUsageSettings() {
     void fetchSeat({ autoProvision: true });
     void refetchUsage();
   }, [fetchSeat, refetchUsage]);
+
+  useEffect(() => {
+    if (showUpgradeDialog) {
+      track(ANALYTICS_EVENTS.UPGRADE_PROMPT_SHOWN, {
+        surface: "upgrade_dialog",
+      });
+    }
+  }, [showUpgradeDialog]);
 
   const formattedActiveUntil = activeUntil
     ? activeUntil.toLocaleDateString(undefined, {
@@ -183,22 +192,13 @@ export function PlanUsageSettings() {
               name="Free"
               price="$0"
               period="/mo"
-              features={[
-                "Limited usage",
-                "Local and cloud execution",
-                "All Claude and Codex models",
-              ]}
               isCurrent={!isOrgPro}
             />
             <PlanCard
               name="Pro"
               price="$200"
               period="/mo"
-              features={[
-                "Higher usage limits",
-                "Local and cloud execution",
-                "All Claude and Codex models",
-              ]}
+              badge="20× Free usage"
               isCurrent={isOrgPro && !isAlpha}
               resetLabel={
                 isOrgPro && !isAlpha && isCanceling && formattedActiveUntil
@@ -238,7 +238,12 @@ export function PlanUsageSettings() {
                   <Button
                     size="1"
                     variant="solid"
-                    onClick={() => setShowUpgradeDialog(true)}
+                    onClick={() => {
+                      track(ANALYTICS_EVENTS.UPGRADE_PROMPT_CLICKED, {
+                        surface: "plan_page_card",
+                      });
+                      setShowUpgradeDialog(true);
+                    }}
                     disabled={isLoading}
                     className="self-start"
                   >
@@ -351,28 +356,16 @@ export function PlanUsageSettings() {
         <Dialog.Content maxWidth="420px" size="2">
           <Dialog.Title className="text-base">Upgrade to Pro</Dialog.Title>
           <Dialog.Description color="gray" className="text-sm">
+            Pro is for teams using Code as part of their daily development
+            workflow: longer cloud runs, repeated agent iterations, and fewer
+            stops as work scales.{" "}
             {seat?.organization_name ? (
               <Text weight="medium">{seat.organization_name}</Text>
             ) : (
               "Your organization"
             )}{" "}
-            will be charged $200/month using the payment method on file in
-            PostHog.
+            will be charged $200/month for 20× the Free usage limit.
           </Dialog.Description>
-          <Flex direction="column" gap="2" mt="3">
-            <Flex align="center" gap="2">
-              <Check size={14} weight="bold" className="text-(--accent-9)" />
-              <Text className="text-sm">Higher usage limits</Text>
-            </Flex>
-            <Flex align="center" gap="2">
-              <Check size={14} weight="bold" className="text-(--accent-9)" />
-              <Text className="text-sm">Local and cloud execution</Text>
-            </Flex>
-            <Flex align="center" gap="2">
-              <Check size={14} weight="bold" className="text-(--accent-9)" />
-              <Text className="text-sm">All Claude and Codex models</Text>
-            </Flex>
-          </Flex>
           <Flex
             align="start"
             gap="2"
@@ -395,6 +388,9 @@ export function PlanUsageSettings() {
             <Button
               size="2"
               onClick={async () => {
+                track(ANALYTICS_EVENTS.UPGRADE_PROMPT_CLICKED, {
+                  surface: "upgrade_dialog",
+                });
                 setShowUpgradeDialog(false);
                 await upgradeToPro();
               }}
@@ -450,9 +446,9 @@ interface PlanCardProps {
   name: string;
   price: string;
   period: string;
-  features: string[];
   isCurrent: boolean;
   resetLabel?: string;
+  badge?: string;
   action?: React.ReactNode;
 }
 
@@ -460,9 +456,9 @@ function PlanCard({
   name,
   price,
   period,
-  features,
   isCurrent,
   resetLabel,
+  badge,
   action,
 }: PlanCardProps) {
   return (
@@ -477,8 +473,13 @@ function PlanCard({
           : "1px solid var(--gray-5)",
         opacity: isCurrent ? 1 : 0.7,
       }}
-      className="flex-1 rounded-(--radius-3)"
+      className="relative flex-1 rounded-(--radius-3)"
     >
+      {badge && (
+        <Badge variant="soft" radius="full" className="absolute top-4 right-4">
+          {badge}
+        </Badge>
+      )}
       <Flex direction="column" gap="3">
         <Flex direction="column" gap="1">
           <Text
@@ -500,29 +501,6 @@ function PlanCard({
           {resetLabel && (
             <Text className="text-(--gray-9) text-[13px]">{resetLabel}</Text>
           )}
-        </Flex>
-        <Flex direction="column" gap="1">
-          {features.map((feature) => (
-            <Flex key={feature} align="center" gap="2">
-              <Check
-                size={14}
-                weight="bold"
-                className="shrink-0 text-(--accent-9)"
-              />
-              <Text className="text-(--gray-11) text-sm">
-                {feature.endsWith("*") ? (
-                  <>
-                    {feature.slice(0, -1)}
-                    <Tooltip content="Usage is limited to human-level usage. This cannot be used as your API key. If you hit this limit, please contact support.">
-                      <span className="cursor-help">*</span>
-                    </Tooltip>
-                  </>
-                ) : (
-                  feature
-                )}
-              </Text>
-            </Flex>
-          ))}
         </Flex>
       </Flex>
       {action}
