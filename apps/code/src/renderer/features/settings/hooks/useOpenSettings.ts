@@ -36,8 +36,11 @@ export function openSettings(
  */
 export function closeSettings(): void {
   useSettingsPageStore.getState().reset();
-  if (nav.isOnSettingsRoute()) {
+  if (!nav.isOnSettingsRoute()) return;
+  if (nav.canGoBackInHistory()) {
     nav.goBackInHistory();
+  } else {
+    nav.navigateToCode();
   }
 }
 
