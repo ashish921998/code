@@ -1,5 +1,6 @@
 import { CHAT_CONTENT_MAX_WIDTH } from "@features/sessions/constants";
 import { useContextUsage } from "@features/sessions/hooks/useContextUsage";
+import { useConversationItems } from "@features/sessions/hooks/useConversationItems";
 import { useConversationSearch } from "@features/sessions/hooks/useConversationSearch";
 import { SessionTaskIdProvider } from "@features/sessions/hooks/useSessionTaskId";
 import {
@@ -24,11 +25,7 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import type { Task } from "@shared/types";
 import type { AcpMessage } from "@shared/types/session-events";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  buildConversationItems,
-  type ConversationItem,
-  type TurnContext,
-} from "./buildConversationItems";
+import type { ConversationItem, TurnContext } from "./buildConversationItems";
 import { ConversationSearchBar } from "./ConversationSearchBar";
 import { GitActionMessage } from "./GitActionMessage";
 import { GitActionResult } from "./GitActionResult";
@@ -82,19 +79,21 @@ export function ConversationView({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const debugLogsCloudRuns = useSettingsStore((s) => s.debugLogsCloudRuns);
   const showDebugLogs = debugLogsCloudRuns;
+
   const contextUsage = useContextUsage(events);
 
+  // Streaming appends one event per token. The parse is incremental — each
+  // event is handled once and completed turns are reused by reference — so per
+  // token the work tracks the active turn, not the whole thread. We feed
+  // `events` directly (no frame-throttle) so a sent message's optimistic->real
+  // swap is never delayed past the frame the store commits it.
   const {
     items: conversationItems,
     lastTurnInfo,
     isCompacting,
-  } = useMemo(
-    () =>
-      buildConversationItems(events, isPromptPending, {
-        showDebugLogs,
-      }),
-    [events, isPromptPending, showDebugLogs],
-  );
+  } = useConversationItems(events, isPromptPending, {
+    showDebugLogs,
+  });
 
   const firstUserMessageIdRef = useRef<string | undefined>(undefined);
   if (firstUserMessageIdRef.current === undefined) {
