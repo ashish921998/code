@@ -26,8 +26,8 @@ import { Route as CodeAgentsRouteImport } from './routes/code/agents'
 import { Route as WebsiteChannelIdIndexRouteImport } from './routes/website/$channelId/index'
 import { Route as CodeInboxIndexRouteImport } from './routes/code/inbox/index'
 import { Route as CodeAgentsIndexRouteImport } from './routes/code/agents/index'
-import { Route as WebsiteChannelIdSettingsRouteImport } from './routes/website/$channelId/settings'
 import { Route as WebsiteChannelIdNewRouteImport } from './routes/website/$channelId/new'
+import { Route as WebsiteChannelIdContextRouteImport } from './routes/website/$channelId/context'
 import { Route as CodeTasksTaskIdRouteImport } from './routes/code/tasks/$taskId'
 import { Route as CodeInboxRunsRouteImport } from './routes/code/inbox/runs'
 import { Route as CodeInboxReportsRouteImport } from './routes/code/inbox/reports'
@@ -131,15 +131,14 @@ const CodeAgentsIndexRoute = CodeAgentsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CodeAgentsRoute,
 } as any)
-const WebsiteChannelIdSettingsRoute =
-  WebsiteChannelIdSettingsRouteImport.update({
-    id: '/$channelId/settings',
-    path: '/$channelId/settings',
-    getParentRoute: () => WebsiteRoute,
-  } as any)
 const WebsiteChannelIdNewRoute = WebsiteChannelIdNewRouteImport.update({
   id: '/$channelId/new',
   path: '/$channelId/new',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const WebsiteChannelIdContextRoute = WebsiteChannelIdContextRouteImport.update({
+  id: '/$channelId/context',
+  path: '/$channelId/context',
   getParentRoute: () => WebsiteRoute,
 } as any)
 const CodeTasksTaskIdRoute = CodeTasksTaskIdRouteImport.update({
@@ -254,8 +253,8 @@ export interface FileRoutesByFullPath {
   '/code/inbox/reports': typeof CodeInboxReportsRouteWithChildren
   '/code/inbox/runs': typeof CodeInboxRunsRouteWithChildren
   '/code/tasks/$taskId': typeof CodeTasksTaskIdRoute
+  '/website/$channelId/context': typeof WebsiteChannelIdContextRoute
   '/website/$channelId/new': typeof WebsiteChannelIdNewRoute
-  '/website/$channelId/settings': typeof WebsiteChannelIdSettingsRoute
   '/code/agents/': typeof CodeAgentsIndexRoute
   '/code/inbox/': typeof CodeInboxIndexRoute
   '/website/$channelId/': typeof WebsiteChannelIdIndexRoute
@@ -286,8 +285,8 @@ export interface FileRoutesByTo {
   '/code/agents/scouts': typeof CodeAgentsScoutsRouteWithChildren
   '/code/inbox/agents': typeof CodeInboxAgentsRoute
   '/code/tasks/$taskId': typeof CodeTasksTaskIdRoute
+  '/website/$channelId/context': typeof WebsiteChannelIdContextRoute
   '/website/$channelId/new': typeof WebsiteChannelIdNewRoute
-  '/website/$channelId/settings': typeof WebsiteChannelIdSettingsRoute
   '/code/agents': typeof CodeAgentsIndexRoute
   '/code/inbox': typeof CodeInboxIndexRoute
   '/website/$channelId': typeof WebsiteChannelIdIndexRoute
@@ -324,8 +323,8 @@ export interface FileRoutesById {
   '/code/inbox/reports': typeof CodeInboxReportsRouteWithChildren
   '/code/inbox/runs': typeof CodeInboxRunsRouteWithChildren
   '/code/tasks/$taskId': typeof CodeTasksTaskIdRoute
+  '/website/$channelId/context': typeof WebsiteChannelIdContextRoute
   '/website/$channelId/new': typeof WebsiteChannelIdNewRoute
-  '/website/$channelId/settings': typeof WebsiteChannelIdSettingsRoute
   '/code/agents/': typeof CodeAgentsIndexRoute
   '/code/inbox/': typeof CodeInboxIndexRoute
   '/website/$channelId/': typeof WebsiteChannelIdIndexRoute
@@ -364,8 +363,8 @@ export interface FileRouteTypes {
     | '/code/inbox/reports'
     | '/code/inbox/runs'
     | '/code/tasks/$taskId'
+    | '/website/$channelId/context'
     | '/website/$channelId/new'
-    | '/website/$channelId/settings'
     | '/code/agents/'
     | '/code/inbox/'
     | '/website/$channelId/'
@@ -396,8 +395,8 @@ export interface FileRouteTypes {
     | '/code/agents/scouts'
     | '/code/inbox/agents'
     | '/code/tasks/$taskId'
+    | '/website/$channelId/context'
     | '/website/$channelId/new'
-    | '/website/$channelId/settings'
     | '/code/agents'
     | '/code/inbox'
     | '/website/$channelId'
@@ -433,8 +432,8 @@ export interface FileRouteTypes {
     | '/code/inbox/reports'
     | '/code/inbox/runs'
     | '/code/tasks/$taskId'
+    | '/website/$channelId/context'
     | '/website/$channelId/new'
-    | '/website/$channelId/settings'
     | '/code/agents/'
     | '/code/inbox/'
     | '/website/$channelId/'
@@ -590,18 +589,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CodeAgentsIndexRouteImport
       parentRoute: typeof CodeAgentsRoute
     }
-    '/website/$channelId/settings': {
-      id: '/website/$channelId/settings'
-      path: '/$channelId/settings'
-      fullPath: '/website/$channelId/settings'
-      preLoaderRoute: typeof WebsiteChannelIdSettingsRouteImport
-      parentRoute: typeof WebsiteRoute
-    }
     '/website/$channelId/new': {
       id: '/website/$channelId/new'
       path: '/$channelId/new'
       fullPath: '/website/$channelId/new'
       preLoaderRoute: typeof WebsiteChannelIdNewRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/website/$channelId/context': {
+      id: '/website/$channelId/context'
+      path: '/$channelId/context'
+      fullPath: '/website/$channelId/context'
+      preLoaderRoute: typeof WebsiteChannelIdContextRouteImport
       parentRoute: typeof WebsiteRoute
     }
     '/code/tasks/$taskId': {
@@ -728,8 +727,8 @@ declare module '@tanstack/react-router' {
 
 interface WebsiteRouteChildren {
   WebsiteIndexRoute: typeof WebsiteIndexRoute
+  WebsiteChannelIdContextRoute: typeof WebsiteChannelIdContextRoute
   WebsiteChannelIdNewRoute: typeof WebsiteChannelIdNewRoute
-  WebsiteChannelIdSettingsRoute: typeof WebsiteChannelIdSettingsRoute
   WebsiteChannelIdIndexRoute: typeof WebsiteChannelIdIndexRoute
   WebsiteChannelIdDashboardsDashboardIdRoute: typeof WebsiteChannelIdDashboardsDashboardIdRoute
   WebsiteChannelIdTasksTaskIdRoute: typeof WebsiteChannelIdTasksTaskIdRoute
@@ -737,8 +736,8 @@ interface WebsiteRouteChildren {
 
 const WebsiteRouteChildren: WebsiteRouteChildren = {
   WebsiteIndexRoute: WebsiteIndexRoute,
+  WebsiteChannelIdContextRoute: WebsiteChannelIdContextRoute,
   WebsiteChannelIdNewRoute: WebsiteChannelIdNewRoute,
-  WebsiteChannelIdSettingsRoute: WebsiteChannelIdSettingsRoute,
   WebsiteChannelIdIndexRoute: WebsiteChannelIdIndexRoute,
   WebsiteChannelIdDashboardsDashboardIdRoute:
     WebsiteChannelIdDashboardsDashboardIdRoute,

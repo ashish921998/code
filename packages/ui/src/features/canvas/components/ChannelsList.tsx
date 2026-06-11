@@ -2,6 +2,7 @@ import {
   CodeIcon,
   DotsThreeIcon,
   FileIcon,
+  FileTextIcon,
   FolderIcon,
   PencilSimpleIcon,
   PlusIcon,
@@ -353,11 +354,12 @@ function ChannelSection({
               );
             })}
             <NavButton
-              label="Settings"
-              active={pathname.startsWith(`${base}/settings`)}
+              label="CONTEXT.md"
+              icon={<FileTextIcon size={14} className="text-gray-9" />}
+              active={pathname.startsWith(`${base}/context`)}
               onClick={() =>
                 navigate({
-                  to: "/website/$channelId/settings",
+                  to: "/website/$channelId/context",
                   params: { channelId: channel.id },
                 })
               }
