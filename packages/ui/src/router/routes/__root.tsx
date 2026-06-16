@@ -20,6 +20,7 @@ import { useSetupDiscovery } from "@posthog/ui/features/setup/useSetupDiscovery"
 import { MainSidebar } from "@posthog/ui/features/sidebar/components/MainSidebar";
 import { useSidebarData } from "@posthog/ui/features/sidebar/useSidebarData";
 import { useVisualTaskOrder } from "@posthog/ui/features/sidebar/useVisualTaskOrder";
+import { RemoteBranchCheckoutDialog } from "@posthog/ui/features/task-detail/components/RemoteBranchCheckoutDialog";
 import { useTasks } from "@posthog/ui/features/tasks/useTasks";
 import { TourOverlay } from "@posthog/ui/features/tour/components/TourOverlay";
 import { useWorkspaces } from "@posthog/ui/features/workspace/useWorkspace";
@@ -240,6 +241,7 @@ function RootLayout() {
           onToggleShortcutsSheet={toggleShortcutsSheet}
         />
         {billingEnabled && <UsageLimitModal />}
+        <RemoteBranchCheckoutDialog />
         {import.meta.env.DEV && (
           <Suspense fallback={null}>
             <TanStackDevtools />
@@ -263,6 +265,7 @@ function RootLayout() {
           onToggleShortcutsSheet={toggleShortcutsSheet}
         />
         {billingEnabled && <UsageLimitModal />}
+        <RemoteBranchCheckoutDialog />
         {import.meta.env.DEV && (
           <Suspense fallback={null}>
             <TanStackDevtools />
@@ -305,6 +308,7 @@ function RootLayout() {
         />
         <TourOverlay />
         {billingEnabled && <UsageLimitModal />}
+        <RemoteBranchCheckoutDialog />
         <HedgehogMode />
         {import.meta.env.DEV && (
           <Suspense fallback={null}>

@@ -7,9 +7,11 @@ import {
 } from "@posthog/di/logger";
 import { createGitClient } from "@posthog/git/client";
 import {
+  branchExists,
   getCurrentBranch,
   getDefaultBranch,
   hasTrackedFiles,
+  remoteBranchExists,
 } from "@posthog/git/queries";
 import { CreateOrSwitchBranchSaga } from "@posthog/git/sagas/branch";
 import { DetachHeadSaga } from "@posthog/git/sagas/head";
@@ -57,6 +59,8 @@ import type {
 } from "./ports";
 import type {
   BranchChangedPayload,
+  CheckWorktreeBranchInput,
+  CheckWorktreeBranchOutput,
   CreateWorkspaceInput,
   LinkedBranchChangedPayload,
   ReconcileCloudWorkspacesOutput,
@@ -420,6 +424,41 @@ export class WorkspaceService extends TypedEventEmitter<WorkspaceServiceEvents> 
     return { created: toCreate };
   }
 
+  /**
+   * Reports whether a branch the user picked for a worktree is the trunk,
+   * exists locally, exists only on the remote, or cannot be found. The renderer
+   * uses "remote-only" to prompt before checking the branch out locally.
+   */
+  async checkWorktreeBranch(
+    options: CheckWorktreeBranchInput,
+    signal?: AbortSignal,
+  ): Promise<CheckWorktreeBranchOutput> {
+    const { mainRepoPath, branch } = options;
+
+    const defaultBranch = await getDefaultBranch(mainRepoPath, {
+      abortSignal: signal,
+    }).catch(() =>
+      getCurrentBranch(mainRepoPath, { abortSignal: signal }).then(
+        (b) => b ?? "main",
+      ),
+    );
+    if (branch === defaultBranch) {
+      return { status: "trunk" };
+    }
+
+    if (await branchExists(mainRepoPath, branch, { abortSignal: signal })) {
+      return { status: "local" };
+    }
+
+    if (
+      await remoteBranchExists(mainRepoPath, branch, { abortSignal: signal })
+    ) {
+      return { status: "remote-only" };
+    }
+
+    return { status: "missing" };
+  }
+
   async createWorkspace(options: CreateWorkspaceInput): Promise<WorkspaceInfo> {
     // Prevent concurrent workspace creation for the same task
     const existingPromise = this.creatingWorkspaces.get(options.taskId);
@@ -450,6 +489,7 @@ export class WorkspaceService extends TypedEventEmitter<WorkspaceServiceEvents> 
       mode,
       branch,
       useExistingBranch,
+      allowRemoteBranchCheckout,
     } = options;
 
     const existingWorkspace = await this.getWorkspaceInfo(taskId);
@@ -587,6 +627,24 @@ export class WorkspaceService extends TypedEventEmitter<WorkspaceServiceEvents> 
             });
             this.log.info(
               `Created detached worktree from occupied branch: ${worktree.worktreeName} at ${worktree.worktreePath}`,
+            );
+          } else if (
+            allowRemoteBranchCheckout &&
+            // Matches the exact message createWorktreeForExistingBranch throws
+            // for a missing local branch, mirroring the occupied-branch check
+            // above. Both keys off the controlled git/worktree error text.
+            errorMessage.includes(`Branch '${selectedBranch}' does not exist`)
+          ) {
+            this.log.info(
+              `Branch ${selectedBranch} is not local; checking it out from the remote`,
+            );
+            worktree = await worktreeManager.createWorktreeForRemoteBranch(
+              selectedBranch,
+              undefined,
+              { onOutput },
+            );
+            this.log.info(
+              `Created worktree from remote branch: ${worktree.worktreeName} at ${worktree.worktreePath} (branch: ${selectedBranch})`,
             );
           } else {
             throw checkoutError;
