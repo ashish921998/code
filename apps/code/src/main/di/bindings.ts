@@ -231,6 +231,7 @@ import type {
   TokenCipherPortAdapter,
 } from "../services/auth/port-adapters";
 import type { DeepLinkService } from "../services/deep-link/service";
+import type { DiscordPresenceService } from "../services/discord-presence/service";
 import type { EncryptionService } from "../services/encryption/service";
 import type { SecureStoreService } from "../services/secure-store/service";
 import type { settingsStore } from "../services/settingsStore";
@@ -247,6 +248,7 @@ import type {
   DATABASE_SERVICE as MAIN_DATABASE_SERVICE,
   DEEP_LINK_SERVICE as MAIN_DEEP_LINK_SERVICE,
   DEFAULT_ADDITIONAL_DIRECTORY_REPOSITORY as MAIN_DEFAULT_ADDITIONAL_DIRECTORY_REPOSITORY,
+  DISCORD_PRESENCE_SERVICE as MAIN_DISCORD_PRESENCE_SERVICE,
   ENCRYPTION_SERVICE as MAIN_ENCRYPTION_SERVICE,
   EXTERNAL_APPS_SERVICE as MAIN_EXTERNAL_APPS_SERVICE,
   FILE_WATCHER_SERVICE as MAIN_FILE_WATCHER_SERVICE,
@@ -428,6 +430,7 @@ export interface MainBindings {
   [SECURE_STORE_SERVICE]: ISecureStoreService;
   [LOGS_SERVICE]: ILogsService;
   [MAIN_ENCRYPTION_SERVICE]: EncryptionService;
+  [MAIN_DISCORD_PRESENCE_SERVICE]: DiscordPresenceService;
   [CANVAS_GEN_SERVICE]: CanvasGenService;
   [FREEFORM_GEN_SERVICE]: FreeformGenService;
 

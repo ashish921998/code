@@ -240,6 +240,7 @@ import {
   TokenCipherPortAdapter,
 } from "../services/auth/port-adapters";
 import { DeepLinkService } from "../services/deep-link/service";
+import { DiscordPresenceService } from "../services/discord-presence/service";
 import { EncryptionService } from "../services/encryption/service";
 import { SecureStoreService } from "../services/secure-store/service";
 import { settingsStore } from "../services/settingsStore";
@@ -704,6 +705,7 @@ container.bind(LOGS_SERVICE).toDynamicValue((ctx) => {
   };
 });
 container.bind(MAIN_ENCRYPTION_SERVICE).to(EncryptionService);
+container.bind(MAIN_TOKENS.DiscordPresenceService).to(DiscordPresenceService);
 
 // Canvas / dashboards (project-bluebird). The host-agnostic dashboard services
 // live in @posthog/core (bound via canvasCoreModule); CanvasGenService is the
