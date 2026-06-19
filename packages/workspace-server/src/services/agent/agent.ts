@@ -68,6 +68,7 @@ import { PROCESS_TRACKING_SERVICE } from "../process-tracking/identifiers";
 import type { ProcessTrackingService } from "../process-tracking/process-tracking";
 import { loadSessionEnvOverrides } from "../session-env/loader";
 import type { AgentAuthAdapter, McpToolInstallations } from "./auth-adapter";
+import { cleanupCodexHome, prepareCodexHome } from "./codex-home";
 import { discoverExternalPlugins } from "./discover-plugins";
 import {
   AGENT_AUTH_ADAPTER,
@@ -688,11 +689,35 @@ When creating pull requests, add the following footer at the end of the PR descr
         systemPromptOverride,
       );
 
+      const bundledSkillsDir = join(
+        this.posthogPluginService.getPluginPath(),
+        "skills",
+      );
+
+      let codexHome: string | undefined;
+      if (adapter === "codex") {
+        try {
+          codexHome = await prepareCodexHome({
+            appDataPath: this.storagePaths.appDataPath,
+            taskRunId,
+            bundledSkillsDir,
+            log: this.log,
+          });
+        } catch (err) {
+          // A skills-prep failure must not kill the session; Codex falls back
+          // to its default home and the user's own ~/.agents/skills.
+          this.log.warn("Failed to prepare codex home", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       const acpConnection = await agent.run(taskId, taskRunId, {
         adapter,
         gatewayUrl: proxyUrl,
         codexBinaryPath:
           adapter === "codex" ? this.getCodexBinaryPath() : undefined,
+        codexHome,
         model,
         reasoningEffort: adapter === "codex" ? effort : undefined,
         developerInstructions:
@@ -785,6 +810,7 @@ When creating pull requests, add the following footer at the end of the PR descr
           {
             userDataDir: this.storagePaths.appDataPath,
             repoPath,
+            bundledSkillsDir,
           },
           this.log,
         );
@@ -1417,6 +1443,10 @@ For git operations while detached:
       } catch {
         this.log.debug("Agent cleanup failed", { taskRunId });
       }
+
+      await cleanupCodexHome(this.storagePaths.appDataPath, taskRunId).catch(
+        () => this.log.debug("Codex home cleanup failed", { taskRunId }),
+      );
 
       this.sessions.delete(taskRunId);
 
