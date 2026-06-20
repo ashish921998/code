@@ -6,16 +6,18 @@ import {
   SquaresFourIcon,
   TrayIcon,
 } from "@phosphor-icons/react";
+import { HOME_TAB_FLAG } from "@posthog/shared/constants";
 import { ChannelsList } from "@posthog/ui/features/canvas/components/ChannelsList";
+import { useFeatureFlag } from "@posthog/ui/features/feature-flags/useFeatureFlag";
 import { openSettings } from "@posthog/ui/features/settings/hooks/useOpenSettings";
 import { ProjectSwitcher } from "@posthog/ui/features/sidebar/components/ProjectSwitcher";
 import { SidebarItem } from "@posthog/ui/features/sidebar/components/SidebarItem";
 import {
   navigateToAgents,
   navigateToCanvas,
-  navigateToHome,
   navigateToInbox,
   navigateToSkills,
+  navigateToWebsiteHome,
 } from "@posthog/ui/router/navigationBridge";
 import { useAppView } from "@posthog/ui/router/useAppView";
 import { Box, Flex } from "@radix-ui/themes";
@@ -32,10 +34,13 @@ const NON_CANVAS_WEBSITE_PREFIXES = [
 ];
 
 // The global nav brought over from the Code app — a single icon+label row each,
-// no rail. These are app-wide destinations (they leave the Channels space for
-// the corresponding Code view); the channel tree below is channel browsing.
+// no rail. Home points at the /website/home mirror so it stays in the Channels
+// space (same shared HomeView, channels chrome kept); the other rows are
+// app-wide destinations that leave the Channels space for the Code view. The
+// channel tree below is channel browsing.
 function ChannelsNav() {
   const view = useAppView();
+  const homeTabEnabled = useFeatureFlag(HOME_TAB_FLAG);
   // Active on the canvas surfaces: the channels index, a channel, or a canvas —
   // any /website route that isn't one of the cross-app mirrors above.
   const isCanvasActive = useRouterState({
@@ -49,18 +54,20 @@ function ChannelsNav() {
   });
   return (
     <Flex direction="column" className="shrink-0 gap-px px-2 py-2">
-      <SidebarItem
-        depth={0}
-        icon={
-          <HouseIcon
-            size={16}
-            weight={view.type === "home" ? "fill" : "regular"}
-          />
-        }
-        label="Home"
-        isActive={view.type === "home"}
-        onClick={navigateToHome}
-      />
+      {homeTabEnabled && (
+        <SidebarItem
+          depth={0}
+          icon={
+            <HouseIcon
+              size={16}
+              weight={view.type === "home" ? "fill" : "regular"}
+            />
+          }
+          label="Home"
+          isActive={view.type === "home"}
+          onClick={navigateToWebsiteHome}
+        />
+      )}
       <SidebarItem
         depth={0}
         icon={
