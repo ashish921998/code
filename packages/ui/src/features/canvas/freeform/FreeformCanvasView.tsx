@@ -25,7 +25,6 @@ import {
 } from "@posthog/ui/features/canvas/stores/freeformChatStore";
 import { useSessionForTask } from "@posthog/ui/features/sessions/useSession";
 import { taskDetailQuery } from "@posthog/ui/features/tasks/queries";
-import { ErrorBoundary } from "@posthog/ui/shell/ErrorBoundary";
 import {
   Box,
   Flex,
@@ -33,10 +32,10 @@ import {
   ScrollArea,
   Text,
 } from "@radix-ui/themes";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
-import { FreeformCanvas } from "./FreeformCanvas";
+import { CanvasFramePlaceholder } from "./CanvasFramePlaceholder";
 import { FreeformGenerateBar } from "./FreeformGenerateBar";
 import { handleFreeformDataRequest } from "./freeformDataBridge";
 import { useCanvasNavigation, useHomeCanvasReset } from "./useHomeCanvasView";
@@ -145,6 +144,15 @@ export function FreeformCanvasView({
   const idx = versions.findIndex((v) => v.id === currentVersionId);
   const canUndo = idx > 0;
   const canRedo = idx !== -1 && idx < versions.length - 1;
+
+  // The data bridge is a pure function; the QueryClient (its read cache) is
+  // injected here rather than resolved inside it.
+  const queryClient = useQueryClient();
+  const onDataRequest = useCallback(
+    (method: string, payload: unknown) =>
+      handleFreeformDataRequest(method, payload, queryClient),
+    [queryClient],
+  );
 
   const onError = useCallback(
     (message: string) => setRuntimeError(threadId, message),
@@ -261,37 +269,45 @@ export function FreeformCanvasView({
                 : "quill-section-loading"
             }
           />
-          <ScrollArea className="h-full">
-            {showCanvas ? (
-              <ErrorBoundary name="freeform-canvas" resetKey={threadId}>
-                <FreeformCanvas
-                  code={code}
-                  mode="edit"
-                  onDataRequest={handleFreeformDataRequest}
-                  onError={onError}
-                  onRendered={onRendered}
-                  onNavigate={onNavigate}
-                  analytics={analytics}
+          {showCanvas ? (
+            // The iframe lives in the persistent warm-frame pool (CanvasFrameHost);
+            // this placeholder just reserves the viewport box and owns scroll via
+            // the host's overlay, so the canvas survives navigation without a reload.
+            <Box className="h-full w-full">
+              <CanvasFramePlaceholder
+                dashboardId={dashboardId}
+                code={code}
+                analytics={analytics}
+                onDataRequest={onDataRequest}
+                onError={onError}
+                onRendered={onRendered}
+                onNavigate={onNavigate}
+              />
+            </Box>
+          ) : (
+            <ScrollArea className="h-full">
+              {showGeneratingState ? (
+                <GeneratingState
+                  channelId={channelId}
+                  taskId={genTaskId ?? ""}
                 />
-              </ErrorBoundary>
-            ) : showGeneratingState ? (
-              <GeneratingState channelId={channelId} taskId={genTaskId ?? ""} />
-            ) : (
-              <Empty className="h-full">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <ShapesIcon size={24} />
-                  </EmptyMedia>
-                  <EmptyTitle>Freeform canvas</EmptyTitle>
-                  <EmptyDescription>
-                    {interactive
-                      ? "Describe the canvas below to build it with an agent."
-                      : "This canvas is empty. Hit Edit to build it with an agent."}
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            )}
-          </ScrollArea>
+              ) : (
+                <Empty className="h-full">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <ShapesIcon size={24} />
+                    </EmptyMedia>
+                    <EmptyTitle>Freeform canvas</EmptyTitle>
+                    <EmptyDescription>
+                      {interactive
+                        ? "Describe the canvas below to build it with an agent."
+                        : "This canvas is empty. Hit Edit to build it with an agent."}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              )}
+            </ScrollArea>
+          )}
         </Box>
 
         {showComposer && (
