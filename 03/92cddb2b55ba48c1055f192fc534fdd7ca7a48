@@ -1,0 +1,23 @@
+packages/core/src/task-detail/modelAdapter.ts
+  s_4f948218fa62f2::t_6f6c291dfddc79 1,8
+packages/core/src/sessions/sessionService.ts
+  s_4f948218fa62f2::t_de9ad4ad29e180 3095
+  s_4f948218fa62f2::t_45adaf4c63ce11 21
+  s_4f948218fa62f2::t_c337467b9f6021 3112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "0392cddb2b55ba48c1055f192fc534fdd7ca7a48",
+  "prompts": {},
+  "sessions": {
+    "s_4f948218fa62f2": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "85a29cff-4349-46a2-92bb-342cbf420b3a",
+        "model": "glm-5.2"
+      },
+      "human_author": "Ashish Huddar <ashish.hudar@gmail.com>"
+    }
+  }
+}
