@@ -7,6 +7,7 @@ import type {
   SessionConfigOption,
   SessionUpdate,
 } from "@agentclientprotocol/sdk";
+import { inferAdapterFromModelId } from "@posthog/core/task-detail/modelAdapter";
 import {
   type AcpMessage,
   type Adapter,
@@ -17,6 +18,7 @@ import {
   getBackoffDelay,
   getCloudUrlFromRegion,
   getConfigOptionByCategory,
+  getCurrentModeFromConfigOptions,
   isFatalSessionError,
   isJsonRpcNotification,
   isJsonRpcRequest,
@@ -831,8 +833,17 @@ export class SessionService {
     const events = convertStoredEntriesToEvents(rawEntries);
 
     const storedAdapter = this.d.adapterStore.getAdapter(taskRunId);
-    const resolvedAdapter = adapter ?? storedAdapter;
     const persistedConfigOptions = this.d.getPersistedConfigOptions(taskRunId);
+
+    // Infer the adapter from the persisted model as a safety net. A missing
+    // adapter on reconnect would cause the local agent to default to Claude
+    // even for Codex/OpenAI sessions.
+    const persistedModelForAdapter =
+      getConfigOptionByCategory(persistedConfigOptions, "model")?.currentValue;
+    const resolvedAdapter =
+      adapter ??
+      storedAdapter ??
+      inferAdapterFromModelId(persistedModelForAdapter);
 
     const previous = this.d.store.getSessions()[taskRunId];
 
@@ -1207,7 +1218,20 @@ export class SessionService {
     }
 
     const { customInstructions: startCustomInstructions } = this.d.settings;
-    const preferredModel = model ?? this.d.DEFAULT_GATEWAY_MODEL;
+
+    // Infer the adapter from the model id when the caller did not supply one.
+    // Without this, a GPT/Codex model paired with an undefined adapter causes
+    // the local agent process to default to Claude and silently ignore the
+    // selected model, falling back to the Claude default (Opus).
+    const resolvedAdapter = adapter ?? inferAdapterFromModelId(model);
+
+    // Use the gateway default only when the caller did not pick a model AND the
+    // adapter is Claude (or still unknown). Codex resolves its own default
+    // server-side via Agent.run, so passing no model is correct there.
+    const preferredModel =
+      model ??
+      (resolvedAdapter === "codex" ? undefined : this.d.DEFAULT_GATEWAY_MODEL);
+
     const result = await this.d.trpc.agent.start.mutate({
       taskId,
       taskRunId: taskRun.id,
@@ -1215,7 +1239,7 @@ export class SessionService {
       apiHost: auth.apiHost,
       projectId: auth.projectId,
       permissionMode: executionMode,
-      adapter,
+      adapter: resolvedAdapter,
       customInstructions: startCustomInstructions || undefined,
       effort: effortLevelSchema.safeParse(reasoningLevel).success
         ? (reasoningLevel as EffortLevel)
@@ -1226,7 +1250,7 @@ export class SessionService {
     const session = createBaseSession(taskRun.id, taskId, taskTitle);
     session.channel = result.channel;
     session.status = "connected";
-    session.adapter = adapter;
+    session.adapter = resolvedAdapter;
     const configOptions = result.configOptions as
       | SessionConfigOption[]
       | undefined;
@@ -1238,8 +1262,8 @@ export class SessionService {
     }
 
     // Persist the adapter
-    if (adapter) {
-      this.d.adapterStore.setAdapter(taskRun.id, adapter);
+    if (resolvedAdapter) {
+      this.d.adapterStore.setAdapter(taskRun.id, resolvedAdapter);
     }
 
     // Store the initial prompt on the session so retry/reset flows can
@@ -1256,7 +1280,7 @@ export class SessionService {
       task_id: taskId,
       execution_type: "local",
       initial_mode: executionMode,
-      adapter,
+      adapter: resolvedAdapter,
     });
 
     if (initialPrompt?.length) {
@@ -3025,13 +3049,27 @@ export class SessionService {
    * initialPrompt saved from the original creation attempt), creates
    * a fresh session and re-sends the prompt instead of reconnecting
    * to an empty session.
+   *
+   * Optional overrides let callers (e.g. the "Retry" button) explicitly pin
+   * the adapter/model/mode for the fresh session. When no overrides are given
+   * the values are recovered from the errored session's adapter +
+   * configOptions so a retry does not silently revert to Claude/Opus.
    */
-  async clearSessionError(taskId: string, repoPath: string): Promise<void> {
+  async clearSessionError(
+    taskId: string,
+    repoPath: string,
+    overrides?: {
+      adapter?: Adapter;
+      model?: string;
+      executionMode?: ExecutionMode;
+      reasoningLevel?: string;
+    },
+  ): Promise<void> {
     this.localRepoPaths.set(taskId, repoPath);
     const session = this.d.store.getSessionByTaskId(taskId);
     if (session?.initialPrompt?.length) {
       const { taskTitle, initialPrompt } = session;
-      await this.teardownSession(session.taskRunId);
+      const oldTaskRunId = session.taskRunId;
       const authStatus = await this.getAuthCredentialsStatus();
       if (authStatus.kind === "restoring") {
         throw new Error("Authentication is still restoring. Please wait.");
@@ -3041,13 +3079,42 @@ export class SessionService {
           "Unable to reach server. Please check your connection.",
         );
       }
+
+      // Recover session intent from the errored session when the caller did
+      // not supply overrides, so retry preserves the user's original picks
+      // instead of resetting to defaults.
+      const recoveredModel =
+        overrides?.model ??
+        getConfigOptionByCategory(session.configOptions, "model")?.currentValue;
+      const recoveredAdapter =
+        overrides?.adapter ??
+        session.adapter ??
+        inferAdapterFromModelId(recoveredModel);
+      const recoveredMode =
+        overrides?.executionMode ??
+        getCurrentModeFromConfigOptions(session.configOptions);
+      const recoveredReasoning =
+        overrides?.reasoningLevel ??
+        getConfigOptionByCategory(
+          session.configOptions,
+          "thought_level",
+        )?.currentValue;
+
+      // Create the new session before tearing down the old one. If creation
+      // fails the caller can retry from the preserved placeholder instead of
+      // being left with no session at all.
       await this.createNewLocalSession(
         taskId,
         taskTitle,
         repoPath,
         authStatus.auth,
         initialPrompt,
+        recoveredMode,
+        recoveredAdapter,
+        recoveredModel,
+        recoveredReasoning,
       );
+      await this.teardownSession(oldTaskRunId);
       return;
     }
     await this.reconnectInPlace(taskId, repoPath);
