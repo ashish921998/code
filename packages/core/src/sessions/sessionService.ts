@@ -18,6 +18,7 @@ import {
   getBackoffDelay,
   getCloudUrlFromRegion,
   getConfigOptionByCategory,
+  getCurrentModeFromConfigOptions,
   isFatalSessionError,
   isJsonRpcNotification,
   isJsonRpcRequest,
@@ -3091,7 +3092,7 @@ export class SessionService {
         inferAdapterFromModelId(recoveredModel);
       const recoveredMode =
         overrides?.executionMode ??
-        getConfigOptionByCategory(session.configOptions, "mode")?.currentValue;
+        getCurrentModeFromConfigOptions(session.configOptions);
       const recoveredReasoning =
         overrides?.reasoningLevel ??
         getConfigOptionByCategory(
@@ -3108,7 +3109,7 @@ export class SessionService {
         repoPath,
         authStatus.auth,
         initialPrompt,
-        recoveredMode as ExecutionMode | undefined,
+        recoveredMode,
         recoveredAdapter,
         recoveredModel,
         recoveredReasoning,
