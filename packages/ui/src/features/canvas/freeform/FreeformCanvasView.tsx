@@ -71,7 +71,7 @@ export function FreeformCanvasView({
   // The generation-task association lives in the canvas record's meta. Poll it
   // while a task is running so the published code + the cleared association show
   // up without a manual refresh (WebsiteDashboard re-syncs the working copy).
-  const { data: dashboard } = useQuery(
+  const { data: dashboard, isLoading: dashboardLoading } = useQuery(
     trpc.dashboards.get.queryOptions(
       { id: dashboardId },
       { enabled: !!dashboardId, staleTime: 4000 },
@@ -196,8 +196,19 @@ export function FreeformCanvasView({
     );
   };
 
-  const showCanvas = !!code;
-  const showGeneratingState = isGenerating && !code;
+  // The working copy (`code`) is only seeded from the record by WebsiteDashboard
+  // once `dashboards.get` lands, so fall back to the record's stored code to
+  // bridge the gap before that seed runs — the seeded value is identical, so a
+  // canvas with content renders right away instead of flashing the empty state.
+  // Deriving from the record rather than waiting on the seed also means a seed
+  // that never runs can't strand the canvas on a spinner.
+  const renderCode = code || dashboard?.code || "";
+  const showCanvas = !!renderCode;
+  const showGeneratingState = isGenerating && !renderCode;
+  // While the record is still being fetched we don't yet know whether the canvas
+  // has content, so show a spinner instead of the empty state. Bounded by the
+  // query, so it resolves once the fetch settles.
+  const showLoadingState = !renderCode && !isGenerating && dashboardLoading;
   const showComposer = interactive && !isGenerating;
 
   return (
@@ -302,7 +313,7 @@ export function FreeformCanvasView({
             <Box className="h-full w-full">
               <CanvasFramePlaceholder
                 dashboardId={dashboardId}
-                code={code}
+                code={renderCode}
                 analytics={analytics}
                 onDataRequest={onDataRequest}
                 onError={onError}
@@ -317,6 +328,8 @@ export function FreeformCanvasView({
                   channelId={channelId}
                   taskId={genTaskId ?? ""}
                 />
+              ) : showLoadingState ? (
+                <LoadingState />
               ) : (
                 <Empty className="h-full">
                   <EmptyHeader>
@@ -344,7 +357,7 @@ export function FreeformCanvasView({
               channelName={channelName}
               name={dashboard?.name ?? "Canvas"}
               templateId={dashboard?.templateId}
-              currentCode={code || undefined}
+              currentCode={renderCode || undefined}
               value={draft}
               onValueChange={setDraft}
             />
@@ -352,6 +365,21 @@ export function FreeformCanvasView({
         )}
       </Flex>
     </Flex>
+  );
+}
+
+// Shown while the canvas record is still loading, so a canvas that actually has
+// content doesn't flash the empty state before its code syncs into the thread.
+function LoadingState() {
+  return (
+    <Empty className="h-full">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <SpinnerGapIcon size={18} className="animate-spin text-accent-9" />
+        </EmptyMedia>
+        <EmptyTitle>Loading canvas</EmptyTitle>
+      </EmptyHeader>
+    </Empty>
   );
 }
 
